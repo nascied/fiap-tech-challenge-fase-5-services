@@ -1,0 +1,13 @@
+# Lista de arquivo ignorado no processo de build
+.git
+.gitignore
+.dockerignore
+db/
+*.md
+Dockerfile
+*.old
+__pycache__/
+*.pyc
+.venv/
+venv/
+config.env

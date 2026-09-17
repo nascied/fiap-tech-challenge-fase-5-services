@@ -1,0 +1,206 @@
+name: CI/CD Solidary Tech - ngo-service
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "microservices/ngo-service/**"
+  push:
+    branches: [main]
+    paths:
+      - "microservices/ngo-service/**"
+
+env:
+  SERVICE_NAME: ngo-service
+  SERVICE_PATH: microservices/ngo-service
+  ECR_REPOSITORY: fiap-tc-f5-ngo-reg
+  PYTHON_VERSION: "3.11"
+  AWS_REGION: us-east-1
+
+permissions:
+  contents: read
+
+jobs:
+  lintcode:
+    name: Lint e qualidade de código
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.SERVICE_PATH }}
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Configura o ambiente de execução do Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: ${{ env.SERVICE_PATH }}/requirements.txt
+
+      - name: Instala dependências
+        run: pip install -r requirements.txt
+
+      - name: Valida sintaxe (py_compile)
+        run: python -m py_compile app.py
+
+      - name: ruff (lint)
+        # Relatório apenas — não trava a pipeline. O objetivo aqui é dar visibilidade
+        # de qualidade de código sem exigir reescrever app.py como pré-requisito
+        # pra ligar CI/CD (mesmo princípio de "não travar em achado pré-existente"
+        # aplicado ao Trivy/govulncheck/gosec no donation-service).
+        run: |
+          pip install ruff
+          ruff check app.py || true
+
+  security:
+    name: Segurança (SAST + SCA)
+    needs: lintcode
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.SERVICE_PATH }}
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: SCA - Trivy filesystem scan (dependências e segredos)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: "fs"
+          scan-ref: ${{ env.SERVICE_PATH }}
+          severity: "CRITICAL,HIGH"
+          exit-code: "0"
+          format: "table"
+          output: "trivy-fs-report-${{ env.SERVICE_NAME }}.txt"
+
+      - name: Upload relatório Trivy (filesystem)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-fs-report-${{ env.SERVICE_NAME }}
+          path: ${{ env.SERVICE_PATH }}/trivy-fs-report-${{ env.SERVICE_NAME }}.txt
+          retention-days: 30
+
+      - name: Configura o ambiente de execução do Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: SCA - pip-audit (CVEs conhecidas nas dependências Python)
+        run: |
+          pip install pip-audit
+          pip-audit -r requirements.txt -f columns > pip-audit-report.txt 2>&1 || true
+          cat pip-audit-report.txt
+
+      - name: Upload relatório pip-audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pip-audit-report-${{ env.SERVICE_NAME }}
+          path: ${{ env.SERVICE_PATH }}/pip-audit-report.txt
+          retention-days: 30
+
+      - name: SAST - bandit
+        run: |
+          pip install bandit
+          bandit -r . -f txt -o bandit-report.txt || true
+          cat bandit-report.txt
+
+      - name: Upload relatório bandit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report-${{ env.SERVICE_NAME }}
+          path: ${{ env.SERVICE_PATH }}/bandit-report.txt
+          retention-days: 30
+
+  build:
+    name: Build e publicação da imagem Docker
+    needs: security
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tag }}
+      image_repository: ${{ steps.publish.outputs.image_repository }}
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: "Dockerfile Lint (Hadolint)"
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: ${{ env.SERVICE_PATH }}/Dockerfile
+          no-fail: true
+
+      - name: Define tag da imagem
+        id: meta
+        run: echo "tag=$(git rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build da imagem Docker (validação local)
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.SERVICE_PATH }}
+          file: ${{ env.SERVICE_PATH }}/Dockerfile
+          load: true
+          push: false
+          tags: ${{ env.SERVICE_NAME }}:${{ steps.meta.outputs.tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=min
+
+      - name: Trivy - scan da imagem
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: "${{ env.SERVICE_NAME }}:${{ steps.meta.outputs.tag }}"
+          severity: "CRITICAL,HIGH"
+          exit-code: "0"
+
+      # A partir daqui: publica no ECR — só em push pra main (imagem de PR não vai
+      # pra registry nem atualiza o GitOps, só valida que builda e escaneia limpo).
+      - name: Configure AWS credentials
+        if: github.event_name == 'push'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login no Amazon ECR
+        if: github.event_name == 'push'
+        id: ecrlogin
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Tag e push para o ECR
+        if: github.event_name == 'push'
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.SERVICE_PATH }}
+          file: ${{ env.SERVICE_PATH }}/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.ecrlogin.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.meta.outputs.tag }}
+            ${{ steps.ecrlogin.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
+          cache-from: type=gha
+
+      - name: Define output do repositório publicado
+        if: github.event_name == 'push'
+        id: publish
+        run: echo "image_repository=${{ steps.ecrlogin.outputs.registry }}/${{ env.ECR_REPOSITORY }}" >> "$GITHUB_OUTPUT"
+
+  update-gitops:
+    name: Atualiza imagem no GitOps
+    needs: build
+    if: github.event_name == 'push'
+    uses: nascied/fiap-tech-challenge-fase-5-gitops/.github/workflows/update-image.yaml@main
+    with:
+      service: ngo-service
+      image_repository: ${{ needs.build.outputs.image_repository }}
+      image_tag: ${{ needs.build.outputs.image_tag }}
+    secrets:
+      GITOPS_PUSH_TOKEN: ${{ secrets.GITOPS_PUSH_TOKEN }}

@@ -1,0 +1,149 @@
+# Docker Compose para validar infraestrutura local da aplicação
+
+services:
+  ngo-service-app:
+    image: ngo-service-app:v1.0
+    build:
+      context: microservices/ngo-service
+      dockerfile: Dockerfile
+    container_name: ngo-service-app
+    restart: on-failure:5
+    ports:
+      - "8081:8081"
+    env_file:
+      - ./microservices/ngo-service/config.env
+    depends_on:
+      ngo-pg-db:
+        condition: service_healthy
+    networks:
+      - front-tier-public
+      - back-tier-private
+
+  ngo-pg-db:
+    image: postgres:16-alpine
+    container_name: ngo-pg-db
+    env_file:
+      - ./microservices/ngo-service/config.env
+    ports:
+      - "5433:5432"
+    volumes:
+      - ngo-pg-data:/var/lib/postgresql/data
+      - ./microservices/ngo-service/db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - back-tier-private
+
+  donation-service-app:
+    image: donation-service-app:v1.0
+    build:
+      context: microservices/donation-service
+      dockerfile: Dockerfile
+    container_name: donation-service-app
+    restart: on-failure:5
+    ports:
+      - "8082:8082"
+    env_file:
+      - ./microservices/donation-service/config.env
+    depends_on:
+      donation-pg-db:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+    networks:
+      - front-tier-public
+      - back-tier-private
+
+  donation-pg-db:
+    image: postgres:16-alpine
+    container_name: donation-pg-db
+    env_file:
+      - ./microservices/donation-service/config.env
+    ports:
+      - "5434:5432"
+    volumes:
+      - donation-pg-data:/var/lib/postgresql/data
+      - ./microservices/donation-service/db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - back-tier-private
+
+  volunteer-service-app:
+    image: volunteer-service-app:v1.0
+    build:
+      context: microservices/volunteer-service
+      dockerfile: Dockerfile
+    container_name: volunteer-service-app
+    restart: on-failure:5
+    ports:
+      - "8083:8083"
+    env_file:
+      - ./microservices/volunteer-service/config.env
+    depends_on:
+      localstack:
+        condition: service_healthy
+    networks:
+      - front-tier-public
+      - back-tier-private
+
+  localstack:
+    # Pinned em 4.4.0: a partir da 2026.3.0 a tag "latest" unificou Community+Pro
+    # e passou a exigir LOCALSTACK_AUTH_TOKEN. 4.4.0 é a última totalmente gratuita.
+    image: localstack/localstack:4.4.0
+    container_name: localstack
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=dynamodb,sqs
+      - DEBUG=0
+    volumes:
+      - ./localstack/init:/etc/localstack/init/ready.d
+      - /var/run/docker.sock:/var/run/docker.sock
+      - localstack-data:/var/lib/localstack
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:4566/_localstack/health"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+    networks:
+      - back-tier-private
+
+  pgadmin:
+    image: dpage/pgadmin4:snapshot
+    container_name: pgadmin
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@admin.com
+      - PGADMIN_DEFAULT_PASSWORD=admin
+    ports:
+      - "8080:80"
+    volumes:
+      - pgadmin-pg-data:/var/lib/pgadmin
+    restart: unless-stopped
+    depends_on:
+      ngo-pg-db:
+        condition: service_healthy
+      donation-pg-db:
+        condition: service_healthy
+    networks:
+      - back-tier-private
+
+networks:
+  front-tier-public: {}
+  back-tier-private: {}
+
+volumes:
+  ngo-pg-data:
+  donation-pg-data:
+  pgadmin-pg-data:
+  localstack-data:
