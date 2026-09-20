@@ -1,0 +1,4 @@
+# Dependências só de teste (CI) — não entram na imagem Docker de produção.
+# moto 4.x pinado por compatibilidade com boto3==1.26.50 (requirements.txt) — moto 5.x exige boto3 >= 1.28.
+pytest==7.4.4
+moto[dynamodb]==4.2.14

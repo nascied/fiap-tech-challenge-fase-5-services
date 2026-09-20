@@ -45,6 +45,11 @@ jobs:
       - name: Valida sintaxe (py_compile)
         run: python -m py_compile app.py
 
+      - name: Testes
+        run: |
+          pip install -r requirements-test.txt
+          pytest -v
+
       - name: ruff (lint)
         # Relatório apenas — não trava a pipeline. O objetivo aqui é dar visibilidade
         # de qualidade de código sem exigir reescrever app.py como pré-requisito
