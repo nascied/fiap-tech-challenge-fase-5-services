@@ -45,6 +45,11 @@ jobs:
       - name: Valida sintaxe (py_compile)
         run: python -m py_compile app.py
 
+      - name: Testes
+        run: |
+          pip install -r requirements-test.txt
+          pytest -v
+
       - name: ruff (lint)
         # Relatório apenas — não trava a pipeline. Ver comentário equivalente
         # no ci-ngo-service.yaml.
