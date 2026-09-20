@@ -1,0 +1,2 @@
+# Dependências só de teste (CI) — não entram na imagem Docker de produção.
+pytest==7.4.4

@@ -53,7 +53,10 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
-          version: latest
+          # Pinada na versão que foi validada de verdade (fmt/build/vet/test/lint
+          # rodaram juntos contra esse binário exato) — "latest" resolveria uma
+          # versão nova a cada execução, com regras de lint diferentes das testadas.
+          version: v1.64.8
           working-directory: ${{ env.SERVICE_PATH }}
           args: --timeout=5m
 
