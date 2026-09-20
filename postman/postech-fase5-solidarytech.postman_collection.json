@@ -1,0 +1,231 @@
+{
+  "info": {
+    "_postman_id": "e32c44ed-c655-4037-a911-ceedeeebbed8",
+    "name": "postech-fase5-solidarytech",
+    "description": "Collection de testes dos microserviços da plataforma Solidary Tech (Tech Challenge Fase 5 - Pós-Tech FIAP): ngo-service, donation-service e volunteer-service.\n\nSuba o ambiente local antes de testar: `docker compose up -d --build` na raiz do projeto.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "ngoBaseUrl", "value": "http://localhost:8081", "type": "string" },
+    { "key": "donationBaseUrl", "value": "http://localhost:8082", "type": "string" },
+    { "key": "volunteerBaseUrl", "value": "http://localhost:8083", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "ngo-service",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{ngoBaseUrl}}/health",
+              "host": ["{{ngoBaseUrl}}"],
+              "path": ["health"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Listar ONGs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{ngoBaseUrl}}/ngos",
+              "host": ["{{ngoBaseUrl}}"],
+              "path": ["ngos"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Criar ONG",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Anjos de Patas\",\n  \"email\": \"contato@anjosdepatas.org\",\n  \"cause\": \"Proteção Animal\",\n  \"city\": \"Osasco\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{ngoBaseUrl}}/ngos",
+              "host": ["{{ngoBaseUrl}}"],
+              "path": ["ngos"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Criar ONG - Campos Obrigatórios Ausentes (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"ONG Incompleta\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{ngoBaseUrl}}/ngos",
+              "host": ["{{ngoBaseUrl}}"],
+              "path": ["ngos"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "donation-service",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{donationBaseUrl}}/health",
+              "host": ["{{donationBaseUrl}}"],
+              "path": ["health"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Listar Doações",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{donationBaseUrl}}/donations",
+              "host": ["{{donationBaseUrl}}"],
+              "path": ["donations"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Criar Doação",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ngo_id\": 1,\n  \"amount\": 50.00,\n  \"donor_name\": \"Doador Teste\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{donationBaseUrl}}/donations",
+              "host": ["{{donationBaseUrl}}"],
+              "path": ["donations"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Criar Doação - Payload Inválido (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{ inválido",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{donationBaseUrl}}/donations",
+              "host": ["{{donationBaseUrl}}"],
+              "path": ["donations"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "volunteer-service",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{volunteerBaseUrl}}/health",
+              "host": ["{{volunteerBaseUrl}}"],
+              "path": ["health"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Registrar Voluntário",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Voluntário Teste\",\n  \"email\": \"voluntario@teste.com\",\n  \"ngo_id\": 1\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{volunteerBaseUrl}}/volunteers",
+              "host": ["{{volunteerBaseUrl}}"],
+              "path": ["volunteers"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Listar Voluntários por ONG",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{volunteerBaseUrl}}/volunteers/:ngo_id",
+              "host": ["{{volunteerBaseUrl}}"],
+              "path": ["volunteers", ":ngo_id"],
+              "variable": [
+                { "key": "ngo_id", "value": "1" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Registrar Voluntário - Campos Obrigatórios Ausentes (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Voluntário Incompleto\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{volunteerBaseUrl}}/volunteers",
+              "host": ["{{volunteerBaseUrl}}"],
+              "path": ["volunteers"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
