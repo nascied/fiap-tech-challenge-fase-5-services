@@ -1,4 +1,4 @@
-# donation-service — build e teste local  
+# donation-service — build e teste local   
 
 Go 1.22 (build multi-stage). Porta `8082`. Persiste em PostgreSQL (`donation_db`) e publica eventos na fila SQS `solidary-donations` (via LocalStack em ambiente local). **Hot Path / Tier 0** do projeto.
 
