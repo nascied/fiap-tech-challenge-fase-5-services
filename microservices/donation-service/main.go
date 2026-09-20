@@ -48,10 +48,18 @@ func main() {
 	_ = godotenv.Load()
 
 	shutdownTracing := initTracing()
-	defer shutdownTracing(context.Background())
+	defer func() {
+		if err := shutdownTracing(context.Background()); err != nil {
+			log.Printf("Erro ao finalizar tracing: %v", err)
+		}
+	}()
 
 	shutdownMetrics := initMetrics()
-	defer shutdownMetrics(context.Background())
+	defer func() {
+		if err := shutdownMetrics(context.Background()); err != nil {
+			log.Printf("Erro ao finalizar métricas: %v", err)
+		}
+	}()
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -193,7 +201,9 @@ func envOrDefault(key, def string) string {
 func (a *App) HealthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"status":"ok","service":"donation-service"}`))
+	if _, err := w.Write([]byte(`{"status":"ok","service":"donation-service"}`)); err != nil {
+		log.Printf("Erro ao escrever resposta de health: %v", err)
+	}
 }
 
 func (a *App) DonationHandler(w http.ResponseWriter, r *http.Request) {
@@ -230,7 +240,9 @@ func (a *App) DonationHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(d)
+		if err := json.NewEncoder(w).Encode(d); err != nil {
+			log.Printf("Erro ao serializar resposta da doação: %v", err)
+		}
 		return
 	}
 
@@ -248,11 +260,16 @@ func (a *App) DonationHandler(w http.ResponseWriter, r *http.Request) {
 		donations := []Donation{}
 		for rows.Next() {
 			var d Donation
-			rows.Scan(&d.ID, &d.NgoID, &d.Amount, &d.DonorName, &d.Status, &d.CreatedAt)
+			if err := rows.Scan(&d.ID, &d.NgoID, &d.Amount, &d.DonorName, &d.Status, &d.CreatedAt); err != nil {
+				log.Printf("Erro ao ler doação: %v", err)
+				continue
+			}
 			donations = append(donations, d)
 		}
 
-		json.NewEncoder(w).Encode(donations)
+		if err := json.NewEncoder(w).Encode(donations); err != nil {
+			log.Printf("Erro ao serializar lista de doações: %v", err)
+		}
 		return
 	}
 
