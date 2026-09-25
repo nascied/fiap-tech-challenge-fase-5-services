@@ -14,7 +14,7 @@ env:
   SERVICE_NAME: donation-service
   SERVICE_PATH: microservices/donation-service
   ECR_REPOSITORY: fiap-tc-f5-donation-reg
-  GO_VERSION: "1.22"
+  GO_VERSION: "1.23"
   AWS_REGION: us-east-1
 
 permissions:
