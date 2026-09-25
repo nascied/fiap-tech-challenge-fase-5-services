@@ -1,4 +1,4 @@
-# volunteer-service — build e teste local   
+# volunteer-service — build e teste local
 
 Python 3.11 + Flask + gunicorn. Porta `8083`. Persiste em DynamoDB (`SolidaryTechVolunteers`, via LocalStack em ambiente local).
 
