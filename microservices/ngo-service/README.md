@@ -1,4 +1,4 @@
-# ngo-service — build e teste local   
+# ngo-service — build e teste local
 
 Python 3.11 + Flask + gunicorn. Porta `8081`. Persiste em PostgreSQL (`ngo_db`).
 
